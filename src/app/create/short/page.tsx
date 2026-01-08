@@ -40,6 +40,7 @@ export default function CreateShortPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<string | null>(null);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [activeTab, setActiveTab] = useState("upload");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,6 +48,9 @@ export default function CreateShortPage() {
   });
 
   useEffect(() => {
+    if (activeTab !== 'camera') {
+      return;
+    }
     const getCameraPermission = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -55,18 +59,33 @@ export default function CreateShortPage() {
         }
         mediaRecorderRef.current = new MediaRecorder(stream);
         mediaRecorderRef.current.ondataavailable = (e) => {
-          const blob = e.data;
-          setRecordedBlob(blob);
-          setRecordedVideo(URL.createObjectURL(blob));
+          if (e.data.size > 0) {
+            const blob = e.data;
+            setRecordedBlob(blob);
+            setRecordedVideo(URL.createObjectURL(blob));
+          }
         };
         setHasCameraPermission(true);
       } catch (error) {
         console.error('Error accessing camera/mic:', error);
         setHasCameraPermission(false);
+         toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera and microphone permissions in your browser settings.',
+        });
       }
     };
     getCameraPermission();
-  }, []);
+
+    // Cleanup function to stop video stream
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [activeTab, toast]);
 
   const startRecording = () => {
     if (mediaRecorderRef.current) {
@@ -78,7 +97,7 @@ export default function CreateShortPage() {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
@@ -92,9 +111,8 @@ export default function CreateShortPage() {
     }
     
     const videoFile = values.video?.[0];
-    const videoBlob = recordedBlob;
 
-    if (!videoFile && !videoBlob) {
+    if (!videoFile && !recordedBlob) {
       toast({ variant: 'destructive', title: 'Error', description: 'No video file selected or recorded.' });
       return;
     }
@@ -106,19 +124,21 @@ export default function CreateShortPage() {
       let uploadBlob: Blob;
       let fileName: string;
 
-      if (videoBlob) {
-        uploadBlob = videoBlob;
+      if (recordedBlob) {
+        uploadBlob = recordedBlob;
         fileName = `${Date.now()}_capture.webm`;
       } else {
         uploadBlob = videoFile;
         fileName = `${Date.now()}_${videoFile.name}`;
       }
-
+      
+      const storageRef = ref(storage, `shorts/${user.uid}/${fileName}`);
+      
+      // Simulating progress for better UX as uploadBytes doesn't provide progress directly
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const storageRef = ref(storage, `shorts/${user.uid}/${fileName}`);
       const uploadResult = await uploadBytes(storageRef, uploadBlob);
       
       clearInterval(progressInterval);
@@ -142,7 +162,7 @@ export default function CreateShortPage() {
 
     } catch (error: any) {
       console.error('Error uploading short:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to upload short.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to upload short. Check console for details.' });
     } finally {
       setIsLoading(false);
     }
@@ -162,7 +182,7 @@ export default function CreateShortPage() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 
-                <Tabs defaultValue="upload" className="w-full">
+                <Tabs defaultValue="upload" className="w-full" onValueChange={setActiveTab}>
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="upload"><Upload className="mr-2"/> Upload</TabsTrigger>
                     <TabsTrigger value="camera"><Camera className="mr-2"/> Record</TabsTrigger>
@@ -186,16 +206,16 @@ export default function CreateShortPage() {
                     <div className="mt-4 space-y-4 text-center">
                        {hasCameraPermission === false && (
                          <Alert variant="destructive">
-                            <AlertTitle>Camera/Mic Access Denied</AlertTitle>
+                            <AlertTitle>Camera/Mic Access Required</AlertTitle>
                             <AlertDescription>
-                              Please enable camera and microphone permissions in your browser settings.
+                              Please allow camera and microphone access to use this feature.
                             </AlertDescription>
                          </Alert>
                       )}
                       <div className="relative aspect-[9/16] w-full max-w-sm mx-auto rounded-md overflow-hidden bg-black">
                         <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
                       </div>
-                      <Button type="button" onClick={isRecording ? stopRecording : startRecording} disabled={hasCameraPermission === false} size="lg" className="rounded-full w-20 h-20">
+                      <Button type="button" onClick={isRecording ? stopRecording : startRecording} disabled={hasCameraPermission !== true} size="lg" className="rounded-full w-20 h-20">
                         {isRecording ? <Disc className="w-10 h-10 animate-spin" /> : <Video className="w-10 h-10" />}
                       </Button>
                       <p className="text-sm text-muted-foreground">{isRecording ? "Recording..." : "Tap to record"}</p>

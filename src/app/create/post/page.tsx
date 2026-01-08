@@ -36,6 +36,7 @@ export default function CreatePostPage() {
   const photoRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("upload");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,6 +44,9 @@ export default function CreatePostPage() {
   });
 
   useEffect(() => {
+    if (activeTab !== 'camera') {
+      return;
+    }
     const getCameraPermission = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -53,10 +57,23 @@ export default function CreatePostPage() {
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this feature.',
+        });
       }
     };
     getCameraPermission();
-  }, []);
+    
+    // Cleanup function to stop video stream
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [activeTab, toast]);
 
   const takePhoto = () => {
     const video = videoRef.current;
@@ -72,6 +89,7 @@ export default function CreatePostPage() {
     
     const dataUrl = photo.toDataURL('image/jpeg');
     setCapturedImage(dataUrl);
+    form.setValue('image', undefined);
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -83,19 +101,17 @@ export default function CreatePostPage() {
 
     try {
       let imageUrl: string | undefined = undefined;
+      const imageFile = values.image?.[0];
 
       if (capturedImage) {
         const blob = await (await fetch(capturedImage)).blob();
         const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_capture.jpg`);
         const uploadResult = await uploadBytes(storageRef, blob);
         imageUrl = await getDownloadURL(uploadResult.ref);
-      } else {
-        const imageFile = values.image?.[0];
-        if (imageFile) {
-          const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
-          const uploadResult = await uploadBytes(storageRef, imageFile);
-          imageUrl = await getDownloadURL(uploadResult.ref);
-        }
+      } else if (imageFile) {
+        const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
+        const uploadResult = await uploadBytes(storageRef, imageFile);
+        imageUrl = await getDownloadURL(uploadResult.ref);
       }
       
       await addDoc(collection(db, 'posts'), {
@@ -114,7 +130,7 @@ export default function CreatePostPage() {
 
     } catch (error: any) {
       console.error('Error creating post:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to create post.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to create post. Check console for details.' });
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +163,7 @@ export default function CreatePostPage() {
                   )}
                 />
                 
-                <Tabs defaultValue="upload" className="w-full">
+                <Tabs defaultValue="upload" className="w-full" onValueChange={setActiveTab}>
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="upload"><Upload className="mr-2"/> Upload</TabsTrigger>
                     <TabsTrigger value="camera"><Camera className="mr-2"/> Camera</TabsTrigger>
@@ -171,9 +187,9 @@ export default function CreatePostPage() {
                     <div className="mt-4 space-y-4">
                       {hasCameraPermission === false && (
                          <Alert variant="destructive">
-                            <AlertTitle>Camera Access Denied</AlertTitle>
+                            <AlertTitle>Camera Access Required</AlertTitle>
                             <AlertDescription>
-                              Please enable camera permissions in your browser settings.
+                              Please allow camera access to use this feature.
                             </AlertDescription>
                          </Alert>
                       )}
@@ -181,7 +197,7 @@ export default function CreatePostPage() {
                         <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
                         <canvas ref={photoRef} className="hidden" />
                       </div>
-                      <Button type="button" onClick={takePhoto} disabled={!hasCameraPermission} className="w-full">
+                      <Button type="button" onClick={takePhoto} disabled={hasCameraPermission !== true} className="w-full">
                         <Camera className="mr-2"/> Take Photo
                       </Button>
                       {capturedImage && (
