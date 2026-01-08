@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +18,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Camera, Upload } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const formSchema = z.object({
   text: z.string().min(1, { message: 'Post cannot be empty.' }).max(500, { message: "Post can't exceed 500 characters."}),
@@ -30,11 +32,47 @@ export default function CreatePostPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const photoRef = useRef<HTMLCanvasElement>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { text: '' },
   });
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setHasCameraPermission(true);
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+      }
+    };
+    getCameraPermission();
+  }, []);
+
+  const takePhoto = () => {
+    const video = videoRef.current;
+    const photo = photoRef.current;
+    if (!video || !photo) return;
+
+    const context = photo.getContext('2d');
+    if (!context) return;
+    
+    photo.width = video.videoWidth;
+    photo.height = video.videoHeight;
+    context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    
+    const dataUrl = photo.toDataURL('image/jpeg');
+    setCapturedImage(dataUrl);
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -45,12 +83,19 @@ export default function CreatePostPage() {
 
     try {
       let imageUrl: string | undefined = undefined;
-      const imageFile = values.image?.[0];
 
-      if (imageFile) {
-        const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
-        const uploadResult = await uploadBytes(storageRef, imageFile);
+      if (capturedImage) {
+        const blob = await (await fetch(capturedImage)).blob();
+        const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_capture.jpg`);
+        const uploadResult = await uploadBytes(storageRef, blob);
         imageUrl = await getDownloadURL(uploadResult.ref);
+      } else {
+        const imageFile = values.image?.[0];
+        if (imageFile) {
+          const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
+          const uploadResult = await uploadBytes(storageRef, imageFile);
+          imageUrl = await getDownloadURL(uploadResult.ref);
+        }
       }
       
       await addDoc(collection(db, 'posts'), {
@@ -101,19 +146,54 @@ export default function CreatePostPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="image"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Add an image (optional)</FormLabel>
-                      <FormControl>
-                        <Input type="file" accept="image/*" {...form.register('image')} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                
+                <Tabs defaultValue="upload" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="upload"><Upload className="mr-2"/> Upload</TabsTrigger>
+                    <TabsTrigger value="camera"><Camera className="mr-2"/> Camera</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="upload">
+                     <FormField
+                        control={form.control}
+                        name="image"
+                        render={({ field }) => (
+                          <FormItem className="mt-4">
+                            <FormLabel>Upload an image (optional)</FormLabel>
+                            <FormControl>
+                              <Input type="file" accept="image/*" {...form.register('image')} onChange={(e) => { field.onChange(e.target.files); setCapturedImage(null); }}/>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                  </TabsContent>
+                  <TabsContent value="camera">
+                    <div className="mt-4 space-y-4">
+                      {hasCameraPermission === false && (
+                         <Alert variant="destructive">
+                            <AlertTitle>Camera Access Denied</AlertTitle>
+                            <AlertDescription>
+                              Please enable camera permissions in your browser settings.
+                            </AlertDescription>
+                         </Alert>
+                      )}
+                      <div className="relative">
+                        <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                        <canvas ref={photoRef} className="hidden" />
+                      </div>
+                      <Button type="button" onClick={takePhoto} disabled={!hasCameraPermission} className="w-full">
+                        <Camera className="mr-2"/> Take Photo
+                      </Button>
+                      {capturedImage && (
+                        <div>
+                          <p className="text-sm font-medium mb-2">Captured Image:</p>
+                          <img src={capturedImage} alt="Captured" className="rounded-md w-full" />
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
                   Publish Post

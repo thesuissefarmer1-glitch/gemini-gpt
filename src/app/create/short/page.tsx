@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,12 +17,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { LoaderCircle } from 'lucide-react';
+import { LoaderCircle, Camera, Upload, Video, Disc, CheckCircle } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const formSchema = z.object({
   caption: z.string().max(150, { message: "Caption can't exceed 150 characters."}).optional(),
-  video: z.any().refine(files => files?.length === 1, "A video file is required."),
+  video: z.any().optional(),
 });
 
 export default function CreateShortPage() {
@@ -32,34 +34,92 @@ export default function CreateShortPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedVideo, setRecordedVideo] = useState<string | null>(null);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { caption: '' },
   });
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        mediaRecorderRef.current.ondataavailable = (e) => {
+          const blob = e.data;
+          setRecordedBlob(blob);
+          setRecordedVideo(URL.createObjectURL(blob));
+        };
+        setHasCameraPermission(true);
+      } catch (error) {
+        console.error('Error accessing camera/mic:', error);
+        setHasCameraPermission(false);
+      }
+    };
+    getCameraPermission();
+  }, []);
+
+  const startRecording = () => {
+    if (mediaRecorderRef.current) {
+      setRecordedVideo(null);
+      setRecordedBlob(null);
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
       toast({ variant: 'destructive', title: 'Not authenticated' });
       return;
     }
+    
+    const videoFile = values.video?.[0];
+    const videoBlob = recordedBlob;
+
+    if (!videoFile && !videoBlob) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No video file selected or recorded.' });
+      return;
+    }
+
     setIsLoading(true);
     setUploadProgress(0);
 
-    const videoFile = values.video?.[0];
-    if (!videoFile) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No video file selected.' });
-        setIsLoading(false);
-        return;
-    }
-
     try {
-      // Dummy progress simulation
+      let uploadBlob: Blob;
+      let fileName: string;
+
+      if (videoBlob) {
+        uploadBlob = videoBlob;
+        fileName = `${Date.now()}_capture.webm`;
+      } else {
+        uploadBlob = videoFile;
+        fileName = `${Date.now()}_${videoFile.name}`;
+      }
+
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      const storageRef = ref(storage, `shorts/${user.uid}/${Date.now()}_${videoFile.name}`);
-      const uploadResult = await uploadBytes(storageRef, videoFile);
+      const storageRef = ref(storage, `shorts/${user.uid}/${fileName}`);
+      const uploadResult = await uploadBytes(storageRef, uploadBlob);
       
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -101,19 +161,56 @@ export default function CreateShortPage() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="video"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Video File</FormLabel>
-                      <FormControl>
-                        <Input type="file" accept="video/*" {...form.register('video')} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                
+                <Tabs defaultValue="upload" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="upload"><Upload className="mr-2"/> Upload</TabsTrigger>
+                    <TabsTrigger value="camera"><Camera className="mr-2"/> Record</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="upload">
+                     <FormField
+                        control={form.control}
+                        name="video"
+                        render={({ field }) => (
+                          <FormItem className="mt-4">
+                            <FormLabel>Video File</FormLabel>
+                            <FormControl>
+                              <Input type="file" accept="video/*" {...form.register('video')} onChange={(e) => { field.onChange(e.target.files); setRecordedBlob(null); setRecordedVideo(null); }} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                  </TabsContent>
+                  <TabsContent value="camera">
+                    <div className="mt-4 space-y-4 text-center">
+                       {hasCameraPermission === false && (
+                         <Alert variant="destructive">
+                            <AlertTitle>Camera/Mic Access Denied</AlertTitle>
+                            <AlertDescription>
+                              Please enable camera and microphone permissions in your browser settings.
+                            </AlertDescription>
+                         </Alert>
+                      )}
+                      <div className="relative aspect-[9/16] w-full max-w-sm mx-auto rounded-md overflow-hidden bg-black">
+                        <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                      </div>
+                      <Button type="button" onClick={isRecording ? stopRecording : startRecording} disabled={hasCameraPermission === false} size="lg" className="rounded-full w-20 h-20">
+                        {isRecording ? <Disc className="w-10 h-10 animate-spin" /> : <Video className="w-10 h-10" />}
+                      </Button>
+                      <p className="text-sm text-muted-foreground">{isRecording ? "Recording..." : "Tap to record"}</p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+                
+                {(recordedVideo || form.watch('video')?.[0]) && (
+                   <div className="space-y-2">
+                      <p className="text-sm font-medium flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500"/> Video Ready</p>
+                      {recordedVideo && <video src={recordedVideo} controls className="w-full rounded-md" />}
+                   </div>
+                )}
+
+
                 <FormField
                   control={form.control}
                   name="caption"
@@ -127,9 +224,10 @@ export default function CreateShortPage() {
                     </FormItem>
                   )}
                 />
+
                 {isLoading && (
                   <div className="space-y-2">
-                    <Label>Uploading...</Label>
+                    <FormLabel>Uploading...</FormLabel>
                     <Progress value={uploadProgress} />
                   </div>
                 )}
