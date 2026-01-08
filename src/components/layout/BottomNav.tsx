@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Video, PlusCircle, User, Settings } from 'lucide-react';
+import { Home, Video, PlusCircle, User, Settings, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/posts', icon: Home, label: 'Posts' },
+  { href: '/profile', icon: User, label: 'Profilo' },
   { href: '/shorts', icon: Video, label: 'Shorts' },
-  { href: '/create', icon: PlusCircle, label: 'Create' },
-  { href: '/profile', icon: User, label: 'Profile' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
+  { href: '/create', icon: PlusCircle, label: 'Crea' },
+  { href: '/posts', icon: FileText, label: 'Post' },
+  { href: '/settings', icon: Settings, label: 'Impostazioni' },
 ];
 
 export default function BottomNav() {
