@@ -1,3 +1,28 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "user-avatar-1",
+      "description": "A placeholder for a user's avatar.",
+      "imageUrl": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3Njc4NjAzMDZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user-avatar-2",
+      "description": "A placeholder for another user's avatar.",
+      "imageUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxtYW4lMjBmYWNlfGVufDB8fHx8MTc2Nzc4MzEzM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man face"
+    },
+    {
+      "id": "post-image-1",
+      "description": "A placeholder image for a user's post.",
+      "imageUrl": "https://images.unsplash.com/photo-1597306957833-433de12c3af6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxhYnN0cmFjdCUyMHNvY2lhbHxlbnwwfHx8fDE3Njc4MTAyOTl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract social"
+    },
+    {
+      "id": "post-image-2",
+      "description": "Another placeholder image for a user's post.",
+      "imageUrl": "https://images.unsplash.com/photo-1616285838730-276556249d0d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaXR5JTIwbGFuZHNjYXBlfGVufDB8fHx8MTc2Nzg5NzA4Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city landscape"
+    }
+  ]
 }
