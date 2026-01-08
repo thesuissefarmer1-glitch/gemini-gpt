@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -49,8 +49,7 @@ export default function RegisterPage() {
         uid: user.uid,
         displayName: values.username,
         email: values.email,
-        photoURL: user.photoURL,
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
       });
 
       toast({
