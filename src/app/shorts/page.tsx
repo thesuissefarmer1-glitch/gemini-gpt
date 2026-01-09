@@ -19,6 +19,7 @@ export default function ShortsPage() {
   const [loading, setLoading] = useState(true);
   const [currentShortIndex, setCurrentShortIndex] = useState(0);
   const observer = useRef<IntersectionObserver | null>(null);
+  const shortRefs = useRef<(HTMLDivElement | null)[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -38,6 +39,10 @@ export default function ShortsPage() {
 
     return () => unsubscribe();
   }, [user, toast]);
+  
+  useEffect(() => {
+    shortRefs.current = shortRefs.current.slice(0, shorts.length);
+  }, [shorts]);
 
   const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
     entries.forEach(entry => {
@@ -49,18 +54,22 @@ export default function ShortsPage() {
   }, []);
 
   useEffect(() => {
-    observer.current = new IntersectionObserver(handleIntersection, {
+    const currentObserver = new IntersectionObserver(handleIntersection, {
       root: null,
       rootMargin: '0px',
       threshold: 0.6,
     });
+    observer.current = currentObserver;
     
-    const elements = document.querySelectorAll('[data-index]');
-    elements.forEach(el => observer.current?.observe(el));
+    shortRefs.current.forEach(el => {
+        if(el) currentObserver.observe(el);
+    });
 
     return () => {
-        if (observer.current) {
-            elements.forEach(el => observer.current!.unobserve(el));
+        if (currentObserver) {
+            shortRefs.current.forEach(el => {
+                if(el) currentObserver.unobserve(el);
+            });
         }
     };
   }, [shorts, handleIntersection]);
@@ -121,7 +130,12 @@ export default function ShortsPage() {
       <div className="h-[calc(100vh-4rem)] md:h-screen w-full snap-y snap-mandatory overflow-y-scroll overflow-x-hidden bg-black">
         {shorts.length > 0 ? (
           shorts.map((short, index) => (
-            <div key={short.id} data-index={index} className="h-full w-full">
+            <div 
+              key={short.id} 
+              ref={el => shortRefs.current[index] = el}
+              data-index={index} 
+              className="h-full w-full flex items-center justify-center snap-center"
+            >
               <ShortPlayer
                 short={short}
                 onLikeToggle={handleLikeToggle}
@@ -135,7 +149,7 @@ export default function ShortsPage() {
           <div className="h-full w-full flex flex-col items-center justify-center text-center text-white p-4">
             <p className="text-muted-foreground mb-4">No shorts yet. Be the first to upload one!</p>
             <Button asChild>
-                <Link href="/create">Upload Short</Link>
+                <Link href="/create/short">Upload Short</Link>
             </Button>
           </div>
         )}

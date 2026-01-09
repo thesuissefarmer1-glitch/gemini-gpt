@@ -37,7 +37,7 @@ export interface Short {
 export interface Comment {
   id: string;
   authorId: string;
-  authorName: string;
+  authorName: string | null;
   authorAvatar: string | null;
   text: string;
   createdAt: Timestamp;

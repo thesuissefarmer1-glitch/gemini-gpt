@@ -3,7 +3,7 @@
 import type { Short, Comment } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, Play, Send, X } from 'lucide-react';
+import { Heart, MessageCircle, Play, Send } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from '../ui/input';
@@ -52,7 +52,7 @@ function CommentsSheet({ short, onAddComment }: { short: Short, onAddComment: (s
                 <div>
                   <p className="text-xs text-muted-foreground">{comment.authorName}</p>
                   <p className="text-sm">{comment.text}</p>
-                   <p className="text-xs text-muted-foreground">{formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}</p>
+                   <p className="text-xs text-muted-foreground">{comment.createdAt ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : 'just now'}</p>
                 </div>
               </div>
             ))}
@@ -106,7 +106,7 @@ export default function ShortPlayer({ short, currentUserId, onLikeToggle, onAddC
   useEffect(() => {
     if (videoRef.current) {
       if (isActive) {
-        videoRef.current.play();
+        videoRef.current.play().catch(error => console.error("Video play failed:", error));
         setIsPlaying(true);
       } else {
         videoRef.current.pause();
@@ -114,6 +114,11 @@ export default function ShortPlayer({ short, currentUserId, onLikeToggle, onAddC
         setIsPlaying(false);
       }
     }
+  }, [isActive]);
+  
+  // Set initial play state based on isActive prop
+  useEffect(() => {
+      setIsPlaying(isActive);
   }, [isActive]);
 
   return (
@@ -124,9 +129,11 @@ export default function ShortPlayer({ short, currentUserId, onLikeToggle, onAddC
         loop
         className="w-full h-full object-cover"
         playsInline
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
       />
       {!isPlaying && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 pointer-events-none">
           <Play className="w-20 h-20 text-white text-opacity-70" fill="currentColor" />
         </div>
       )}
@@ -142,7 +149,7 @@ export default function ShortPlayer({ short, currentUserId, onLikeToggle, onAddC
       </div>
       <div className="absolute right-2 bottom-24 flex flex-col gap-4" onClick={e => e.stopPropagation()}>
         <Button size="icon" variant="ghost" onClick={handleLike} className="text-white h-12 w-12 flex-col gap-1">
-          <Heart className={`h-7 w-7 ${isLiked ? 'text-red-500 fill-current' : ''}`} />
+          <Heart className={`h-7 w-7 transition-colors ${isLiked ? 'text-red-500 fill-current' : ''}`} />
           <span className="text-xs">{short.likedBy?.length || 0}</span>
         </Button>
         <div onClick={handleCommentClick}>

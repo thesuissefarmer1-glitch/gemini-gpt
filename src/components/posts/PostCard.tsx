@@ -57,7 +57,7 @@ export default function PostCard({ post, currentUserId, onLikeToggle, onAddComme
       <CardFooter className="flex-col items-start gap-3 border-t pt-4">
         <div className="flex justify-between w-full">
           <Button variant="ghost" onClick={handleLike} className="flex items-center gap-2">
-            <Heart className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : ''}`} />
+            <Heart className={`w-5 h-5 transition-colors ${isLiked ? 'text-red-500 fill-current' : ''}`} />
             <span>{post.likedBy?.length || 0} Like(s)</span>
           </Button>
           <Button variant="ghost" onClick={() => setShowComments(!showComments)} className="flex items-center gap-2">

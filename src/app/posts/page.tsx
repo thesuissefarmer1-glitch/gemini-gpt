@@ -116,7 +116,7 @@ export default function PostsPage() {
           <div className="text-center py-20">
             <p className="text-muted-foreground mb-4">No posts yet. Be the first to share something!</p>
             <Button asChild>
-                <Link href="/create">Create Post</Link>
+                <Link href="/create/post">Create Post</Link>
             </Button>
           </div>
         )}

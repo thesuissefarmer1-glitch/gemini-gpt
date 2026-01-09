@@ -1,0 +1,37 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read anyone's profile, but only write to their own.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Posts can be read by any authenticated user.
+    // Users can only create posts for themselves.
+    // Users can update their own posts (text, imageUrl) but anyone can update likes and comments.
+    // Users can only delete their own posts.
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth.uid == request.resource.data.authorId;
+      allow update: if request.auth.uid == resource.data.authorId // Allow author to edit text/image
+                   || (request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments'])); // Allow any auth user to like/comment
+      allow delete: if request.auth.uid == resource.data.authorId;
+    }
+
+    // Shorts can be read by any authenticated user.
+    // Users can only create shorts for themselves.
+    // Users can update their own shorts (caption, videoUrl) but anyone can update likes and comments.
+    // Users can only delete their own shorts.
+    match /shorts/{shortId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth.uid == request.resource.data.authorId;
+      allow update: if request.auth.uid == resource.data.authorId // Allow author to edit caption/video
+                   || (request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments'])); // Allow any auth user to like/comment
+      allow delete: if request.auth.uid == resource.data.authorId;
+    }
+  }
+}
