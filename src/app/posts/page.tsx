@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 import type { Post } from '@/types';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -75,7 +75,7 @@ export default function PostsPage() {
       authorName: user.displayName,
       authorAvatar: user.photoURL,
       text: commentText,
-      createdAt: serverTimestamp(),
+      createdAt: Timestamp.fromDate(new Date()),
     };
 
     try {

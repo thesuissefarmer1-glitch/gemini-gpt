@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 import type { Short } from '@/types';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -104,7 +104,7 @@ export default function ShortsPage() {
       authorName: user.displayName,
       authorAvatar: user.photoURL,
       text: commentText,
-      createdAt: serverTimestamp(),
+      createdAt: Timestamp.fromDate(new Date()),
     };
 
     try {
@@ -132,7 +132,7 @@ export default function ShortsPage() {
           shorts.map((short, index) => (
             <div 
               key={short.id} 
-              ref={el => { shortRefs.current[index] = el; }}
+              ref={(el) => { shortRefs.current[index] = el; }}
               data-index={index} 
               className="h-full w-full flex items-center justify-center snap-center"
             >
