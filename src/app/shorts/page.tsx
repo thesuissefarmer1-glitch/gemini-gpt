@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { collection, getDocs, query, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 import type { Short } from '@/types';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -11,6 +11,7 @@ import ShortPlayer from '@/components/shorts/ShortPlayer';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function ShortsPage() {
   const { user, loading: authLoading } = useAuthGuard();
@@ -21,23 +22,21 @@ export default function ShortsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user) {
-      const fetchShorts = async () => {
-        try {
-          const shortsCollection = collection(db, 'shorts');
-          const q = query(shortsCollection, orderBy('createdAt', 'desc'));
-          const shortSnapshot = await getDocs(q);
-          const shortsList = shortSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Short));
-          setShorts(shortsList);
-        } catch (error) {
-          console.error("Error fetching shorts:", error);
-          toast({ variant: "destructive", title: "Error", description: "Could not fetch shorts." });
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchShorts();
-    }
+    if (!user) return;
+
+    const q = query(collection(db, 'shorts'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const shortsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Short));
+      setShorts(shortsList);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching shorts:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not fetch shorts." });
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [user, toast]);
 
   const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
@@ -66,20 +65,47 @@ export default function ShortsPage() {
     };
   }, [shorts, handleIntersection]);
   
-  const handleLike = async (shortId: string) => {
+  const handleLikeToggle = async (shortId: string) => {
     if (!user) return;
+    
+    const shortRef = doc(db, 'shorts', shortId);
+    const short = shorts.find(s => s.id === shortId);
+    if (!short) return;
+
+    const isLiked = short.likedBy?.includes(user.uid);
     try {
-      const shortRef = doc(db, 'shorts', shortId);
-      await updateDoc(shortRef, { likes: increment(1) });
-      setShorts(shorts.map(s => s.id === shortId ? { ...s, likes: s.likes + 1 } : s));
+      if (isLiked) {
+        await updateDoc(shortRef, { likedBy: arrayRemove(user.uid) });
+      } else {
+        await updateDoc(shortRef, { likedBy: arrayUnion(user.uid) });
+      }
     } catch (error) {
-      console.error("Error liking short:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not like short." });
+      console.error("Error toggling like on short:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not update like." });
     }
   };
 
-  const handleComment = (shortId: string) => {
-    toast({ title: "Coming Soon!", description: "Commenting feature is under development." });
+  const handleAddComment = async (shortId: string, commentText: string) => {
+    if (!user || !commentText.trim()) return;
+
+    const shortRef = doc(db, 'shorts', shortId);
+    const newComment = {
+      id: uuidv4(),
+      authorId: user.uid,
+      authorName: user.displayName,
+      authorAvatar: user.photoURL,
+      text: commentText,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await updateDoc(shortRef, {
+        comments: arrayUnion(newComment),
+      });
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
+    }
   };
   
   if (authLoading || loading) {
@@ -98,9 +124,10 @@ export default function ShortsPage() {
             <div key={short.id} data-index={index} className="h-full w-full">
               <ShortPlayer
                 short={short}
-                onLike={handleLike}
-                onComment={handleComment}
+                onLikeToggle={handleLikeToggle}
+                onAddComment={handleAddComment}
                 isActive={index === currentShortIndex}
+                currentUserId={user.uid}
               />
             </div>
           ))

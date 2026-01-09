@@ -18,7 +18,7 @@ export interface Post {
   text: string;
   imageUrl?: string;
   createdAt: Timestamp;
-  likes: number;
+  likedBy: string[]; // Array of user UIDs
   comments: Comment[];
 }
 
@@ -30,7 +30,7 @@ export interface Short {
   videoUrl: string;
   caption: string;
   createdAt: Timestamp;
-  likes: number;
+  likedBy: string[]; // Array of user UIDs
   comments: Comment[];
 }
 
@@ -38,8 +38,7 @@ export interface Comment {
   id: string;
   authorId: string;
   authorName: string;
+  authorAvatar: string | null;
   text: string;
   createdAt: Timestamp;
 }
-
-    

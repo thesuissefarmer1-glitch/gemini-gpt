@@ -1,24 +1,95 @@
 "use client";
 
-import type { Short } from '@/types';
+import type { Short, Comment } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, MessageCircle, Play } from 'lucide-react';
+import { Heart, MessageCircle, Play, Send, X } from 'lucide-react';
 import { useRef, useState, useEffect } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Input } from '../ui/input';
+import { ScrollArea } from '../ui/scroll-area';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ShortPlayerProps {
   short: Short;
-  onLike: (shortId: string) => void;
-  onComment: (shortId: string) => void;
+  currentUserId: string;
+  onLikeToggle: (shortId: string) => void;
+  onAddComment: (shortId: string, commentText: string) => void;
   isActive: boolean;
 }
 
-export default function ShortPlayer({ short, onLike, onComment, isActive }: ShortPlayerProps) {
+function CommentsSheet({ short, onAddComment }: { short: Short, onAddComment: (shortId: string, commentText: string) => void }) {
+  const [commentText, setCommentText] = useState('');
+
+  const handleCommentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (commentText.trim()) {
+      onAddComment(short.id, commentText);
+      setCommentText('');
+    }
+  };
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button size="icon" variant="ghost" className="text-white h-12 w-12 flex-col gap-1">
+          <MessageCircle className="h-7 w-7" />
+          <span className="text-xs">{short.comments?.length || 0}</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="h-[80vh] flex flex-col text-black bg-white rounded-t-2xl">
+        <SheetHeader className="text-center pb-4 border-b">
+          <SheetTitle>{short.comments?.length || 0} Comments</SheetTitle>
+        </SheetHeader>
+        <ScrollArea className="flex-1 my-4">
+          <div className="px-4 space-y-4">
+            {short.comments?.sort((a,b) => b.createdAt.toMillis() - a.createdAt.toMillis()).map((comment: Comment) => (
+              <div key={comment.id} className="flex items-start gap-3">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={comment.authorAvatar || undefined} />
+                  <AvatarFallback>{comment.authorName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-xs text-muted-foreground">{comment.authorName}</p>
+                  <p className="text-sm">{comment.text}</p>
+                   <p className="text-xs text-muted-foreground">{formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}</p>
+                </div>
+              </div>
+            ))}
+             {(!short.comments || short.comments.length === 0) && (
+                <p className="text-sm text-muted-foreground text-center py-10">Be the first to comment!</p>
+             )}
+          </div>
+        </ScrollArea>
+        <form onSubmit={handleCommentSubmit} className="flex w-full items-center space-x-2 p-4 border-t bg-white">
+          <Input 
+            placeholder="Add a comment..."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            className="bg-gray-100"
+          />
+          <Button type="submit" size="icon">
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+export default function ShortPlayer({ short, currentUserId, onLikeToggle, onAddComment, isActive }: ShortPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const isLiked = short.likedBy?.includes(currentUserId);
 
-  const handleLike = () => onLike(short.id);
-  const handleComment = () => onComment(short.id);
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onLikeToggle(short.id);
+  };
+  
+  const handleCommentClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  }
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -69,15 +140,14 @@ export default function ShortPlayer({ short, onLike, onComment, isActive }: Shor
         </div>
         <p className="text-sm">{short.caption}</p>
       </div>
-      <div className="absolute right-2 bottom-24 flex flex-col gap-4">
+      <div className="absolute right-2 bottom-24 flex flex-col gap-4" onClick={e => e.stopPropagation()}>
         <Button size="icon" variant="ghost" onClick={handleLike} className="text-white h-12 w-12 flex-col gap-1">
-          <Heart className="h-7 w-7" />
-          <span className="text-xs">{short.likes}</span>
+          <Heart className={`h-7 w-7 ${isLiked ? 'text-red-500 fill-current' : ''}`} />
+          <span className="text-xs">{short.likedBy?.length || 0}</span>
         </Button>
-        <Button size="icon" variant="ghost" onClick={handleComment} className="text-white h-12 w-12 flex-col gap-1">
-          <MessageCircle className="h-7 w-7" />
-          <span className="text-xs">{short.comments.length}</span>
-        </Button>
+        <div onClick={handleCommentClick}>
+          <CommentsSheet short={short} onAddComment={onAddComment} />
+        </div>
       </div>
     </div>
   );

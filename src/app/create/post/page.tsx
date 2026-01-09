@@ -118,7 +118,7 @@ export default function CreatePostPage() {
         text: values.text,
         imageUrl,
         createdAt: serverTimestamp(),
-        likes: 0,
+        likedBy: [],
         comments: [],
       });
 

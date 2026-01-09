@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 import type { Post } from '@/types';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
@@ -11,6 +11,7 @@ import PostCard from '@/components/posts/PostCard';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function PostsPage() {
   const { user, loading: authLoading } = useAuthGuard();
@@ -19,45 +20,72 @@ export default function PostsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user) {
-      const fetchPosts = async () => {
-        try {
-          const postsCollection = collection(db, 'posts');
-          const q = query(postsCollection, orderBy('createdAt', 'desc'));
-          const postSnapshot = await getDocs(q);
-          const postsList = postSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-          setPosts(postsList);
-        } catch (error) {
-          console.error("Error fetching posts:", error);
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not fetch posts.",
-          });
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchPosts();
-    }
+    if (!user) return;
+  
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const loadedPosts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Post));
+      setPosts(loadedPosts);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching posts with real-time updates:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not fetch posts.",
+      });
+      setLoading(false);
+    });
+  
+    return () => unsubscribe();
   }, [user, toast]);
 
-  const handleLike = async (postId: string) => {
+  const handleLikeToggle = async (postId: string) => {
     if (!user) return;
+    
+    const postRef = doc(db, 'posts', postId);
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    const isLiked = post.likedBy?.includes(user.uid);
+
     try {
-      const postRef = doc(db, 'posts', postId);
-      await updateDoc(postRef, {
-        likes: increment(1)
-      });
-      setPosts(posts.map(p => p.id === postId ? { ...p, likes: p.likes + 1 } : p));
+      if (isLiked) {
+        await updateDoc(postRef, { likedBy: arrayRemove(user.uid) });
+      } else {
+        await updateDoc(postRef, { likedBy: arrayUnion(user.uid) });
+      }
     } catch (error) {
-      console.error("Error liking post:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not like post." });
+      console.error("Error toggling like:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not update like." });
     }
   };
 
-  const handleComment = (postId: string) => {
-    toast({ title: "Coming Soon!", description: "Commenting feature is under development." });
+  const handleAddComment = async (postId: string, commentText: string) => {
+    if (!user || !commentText.trim()) return;
+
+    const postRef = doc(db, 'posts', postId);
+    const newComment = {
+      id: uuidv4(),
+      authorId: user.uid,
+      authorName: user.displayName,
+      authorAvatar: user.photoURL,
+      text: commentText,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await updateDoc(postRef, {
+        comments: arrayUnion(newComment),
+      });
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not add comment." });
+    }
   };
   
   if (authLoading || loading) {
@@ -75,7 +103,13 @@ export default function PostsPage() {
         {posts.length > 0 ? (
           <div className="space-y-6">
             {posts.map(post => (
-              <PostCard key={post.id} post={post} onLike={handleLike} onComment={handleComment} />
+              <PostCard 
+                key={post.id} 
+                post={post} 
+                onLikeToggle={handleLikeToggle}
+                onAddComment={handleAddComment}
+                currentUserId={user.uid}
+              />
             ))}
           </div>
         ) : (

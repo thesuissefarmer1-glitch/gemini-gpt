@@ -131,7 +131,7 @@ export default function CreateShortPage() {
         caption: values.caption || '',
         videoUrl,
         createdAt: serverTimestamp(),
-        likes: 0,
+        likedBy: [],
         comments: [],
       });
 
