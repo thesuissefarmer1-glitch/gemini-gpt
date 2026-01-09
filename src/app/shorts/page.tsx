@@ -132,7 +132,7 @@ export default function ShortsPage() {
           shorts.map((short, index) => (
             <div 
               key={short.id} 
-              ref={el => shortRefs.current[index] = el}
+              ref={el => { shortRefs.current[index] = el; }}
               data-index={index} 
               className="h-full w-full flex items-center justify-center snap-center"
             >
