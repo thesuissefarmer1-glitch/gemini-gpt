@@ -5,6 +5,8 @@ export interface UserProfile {
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
+  coverImageUrl?: string | null;
+  bio?: string;
   createdAt: Timestamp;
 }
 
@@ -41,4 +43,3 @@ export interface Comment {
 }
 
     
-

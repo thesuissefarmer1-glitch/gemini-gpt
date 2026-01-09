@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { storage } from "./firebaseClient";
 
 /**
@@ -11,10 +11,8 @@ import { storage } from "./firebaseClient";
 export const uploadFile = async (file: File, folder: string, userId: string) => {
   try {
     const timestamp = Date.now();
-    // For avatars and covers, we might want a consistent file name to overwrite
-    const fileName = folder === 'avatars' || folder === 'covers' 
-      ? `${userId}_${file.name}`
-      : `${timestamp}_${file.name}`;
+    // For avatars and covers, we might want a consistent file name to overwrite, but a unique one is safer to avoid caching issues.
+    const fileName = `${userId}_${timestamp}_${file.name}`;
       
     const storageRef = ref(storage, `${folder}/${userId}/${fileName}`);
 
@@ -29,3 +27,26 @@ export const uploadFile = async (file: File, folder: string, userId: string) => 
     throw error;
   }
 };
+
+/**
+ * Deletes a file from Firebase Storage.
+ * @param fileUrl The full URL of the file to delete.
+ */
+export const deleteFile = async (fileUrl: string) => {
+  if (!fileUrl) return;
+  try {
+    const storageRef = ref(storage, fileUrl);
+    await deleteObject(storageRef);
+    console.log("File deleted from:", fileUrl);
+  } catch (error: any) {
+    // It's okay if the file doesn't exist.
+    if (error.code === 'storage/object-not-found') {
+        console.warn("File to delete not found, skipping:", fileUrl);
+        return;
+    }
+    console.error("Error deleting file:", error);
+    throw error;
+  }
+}
+
+    
