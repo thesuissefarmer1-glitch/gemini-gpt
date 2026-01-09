@@ -43,12 +43,15 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
       
-      await updateProfile(user, { displayName: values.username });
+      await updateProfile(user, { displayName: values.username, photoURL: null });
       
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         displayName: values.username,
         email: values.email,
+        photoURL: null,
+        coverImageUrl: null,
+        bio: '',
         createdAt: serverTimestamp(),
       });
 
@@ -134,3 +137,5 @@ export default function RegisterPage() {
     </Card>
   );
 }
+
+    

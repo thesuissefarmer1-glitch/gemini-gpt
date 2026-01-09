@@ -7,23 +7,35 @@ import MainLayout from '@/components/layout/MainLayout';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
-import type { Post, Short } from '@/types';
+import type { Post, Short, UserProfile } from '@/types';
 import Image from 'next/image';
 import { Video } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuthGuard();
+  const { toast } = useToast();
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [shorts, setShorts] = useState<Short[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loadingContent, setLoadingContent] = useState(true);
 
   useEffect(() => {
     if (user) {
-      const fetchContent = async () => {
+      const fetchUserData = async () => {
         setLoadingContent(true);
         try {
+          // Fetch user profile data from Firestore
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            setUserProfile(userDocSnap.data() as UserProfile);
+          }
+
+          // Fetch user content
           const postsQuery = query(collection(db, 'posts'), where('authorId', '==', user.uid));
           const postsSnapshot = await getDocs(postsQuery);
           setPosts(postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post)));
@@ -33,32 +45,36 @@ export default function ProfilePage() {
           setShorts(shortsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Short)));
         } catch (error) {
           console.error("Error fetching user content:", error);
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch user data.' });
         } finally {
           setLoadingContent(false);
         }
       };
-      fetchContent();
+      fetchUserData();
     }
-  }, [user]);
-  
-  if (authLoading) {
+  }, [user, toast]);
+
+  if (authLoading || !userProfile) {
     return <FullScreenLoader />;
-  }
-  if (!user) {
-    return null; // Auth guard will redirect
   }
 
   return (
     <MainLayout>
       <div className="container mx-auto max-w-4xl py-6 px-4">
-        <header className="flex flex-col items-center gap-4 mb-8">
-          <Avatar className="w-24 h-24 border-4 border-primary">
-            <AvatarImage src={user.photoURL || undefined} data-ai-hint="person portrait" />
-            <AvatarFallback className="text-4xl">{user.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-          </Avatar>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold font-headline">{user.displayName}</h1>
-            <p className="text-muted-foreground">{user.email}</p>
+        <header className="mb-8">
+          <div className="relative h-48 w-full rounded-lg bg-secondary mb-[-48px]">
+            {/* Placeholder for cover image */}
+          </div>
+          <div className="flex flex-col items-center">
+            <Avatar className="w-24 h-24 border-4 border-background bg-background">
+              <AvatarImage src={userProfile.photoURL || undefined} data-ai-hint="person portrait" />
+              <AvatarFallback className="text-4xl">{userProfile.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+            </Avatar>
+            <div className="text-center mt-2">
+              <h1 className="text-3xl font-bold font-headline">{userProfile.displayName}</h1>
+              <p className="text-muted-foreground">{userProfile.email}</p>
+              {/* Placeholder for bio */}
+            </div>
           </div>
         </header>
 

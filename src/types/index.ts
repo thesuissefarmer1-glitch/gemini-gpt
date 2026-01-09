@@ -5,7 +5,7 @@ export interface UserProfile {
   displayName: string | null;
   email: string | null;
   photoURL: string | null;
-  createdAt: Timestamp | Date;
+  createdAt: Timestamp;
 }
 
 export interface Post {
@@ -39,3 +39,5 @@ export interface Comment {
   text: string;
   createdAt: Timestamp;
 }
+
+    
