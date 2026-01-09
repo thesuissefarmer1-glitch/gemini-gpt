@@ -18,7 +18,7 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth.uid == request.resource.data.authorId;
       allow update: if request.auth.uid == resource.data.authorId // Allow author to edit text/image
-                   || (request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments'])); // Allow any auth user to like/comment
+                   || (request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasAny(['likedBy', 'comments'])); // Allow any auth user to like/comment
       allow delete: if request.auth.uid == resource.data.authorId;
     }
 
@@ -30,7 +30,7 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth.uid == request.resource.data.authorId;
       allow update: if request.auth.uid == resource.data.authorId // Allow author to edit caption/video
-                   || (request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'comments'])); // Allow any auth user to like/comment
+                   || (request.auth.uid != null && request.resource.data.diff(resource.data).affectedKeys().hasAny(['likedBy', 'comments'])); // Allow any auth user to like/comment
       allow delete: if request.auth.uid == resource.data.authorId;
     }
   }
