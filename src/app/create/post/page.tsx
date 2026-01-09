@@ -6,8 +6,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebaseClient';
+import { uploadFile } from '@/lib/uploadHelper';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useToast } from '@/hooks/use-toast';
 
@@ -105,13 +105,10 @@ export default function CreatePostPage() {
 
       if (capturedImage) {
         const blob = await (await fetch(capturedImage)).blob();
-        const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_capture.jpg`);
-        const uploadResult = await uploadBytes(storageRef, blob);
-        imageUrl = await getDownloadURL(uploadResult.ref);
+        const file = new File([blob], `${Date.now()}_capture.jpg`, { type: 'image/jpeg' });
+        imageUrl = await uploadFile(file, 'posts', user.uid);
       } else if (imageFile) {
-        const storageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${imageFile.name}`);
-        const uploadResult = await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(uploadResult.ref);
+        imageUrl = await uploadFile(imageFile, 'posts', user.uid);
       }
       
       await addDoc(collection(db, 'posts'), {

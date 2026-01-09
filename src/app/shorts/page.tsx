@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { collection, getDocs, query, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebaseClient';
 import type { Short } from '@/types';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import FullScreenLoader from '@/components/layout/FullScreenLoader';
@@ -17,7 +17,7 @@ export default function ShortsPage() {
   const [shorts, setShorts] = useState<Short[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentShortIndex, setCurrentShortIndex] = useState(0);
-  const observer = useRef<IntersectionObserver>();
+  const observer = useRef<IntersectionObserver | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -60,7 +60,9 @@ export default function ShortsPage() {
     elements.forEach(el => observer.current?.observe(el));
 
     return () => {
-      elements.forEach(el => observer.current?.unobserve(el));
+        if (observer.current) {
+            elements.forEach(el => observer.current!.unobserve(el));
+        }
     };
   }, [shorts, handleIntersection]);
   

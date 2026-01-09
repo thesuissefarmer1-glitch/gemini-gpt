@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, getDocs, query, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebaseClient';
 import type { Post } from '@/types';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import FullScreenLoader from '@/components/layout/FullScreenLoader';

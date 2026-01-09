@@ -1,16 +1,9 @@
 [
   {
     "origin": [
-      "https://gemini-gpt-fd445.web.app",
-      "https://9000-firebase-studio-1767896057163.cluster-lu4mup47g5gm4rtyvhzpwbfadi.cloudworkstations.dev"
+      "https://gemini-gpt-fd445.web.app"
     ],
-    "method": [
-      "GET",
-      "POST",
-      "PUT",
-      "DELETE",
-      "HEAD"
-    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
     "maxAgeSeconds": 3600
   }
 ]

@@ -2,7 +2,7 @@
 
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth } from '@/lib/firebaseClient';
 import { useRouter } from 'next/navigation';
 
 import FullScreenLoader from '@/components/layout/FullScreenLoader';
